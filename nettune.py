@@ -202,6 +202,47 @@ def show_explanations():
     print(f"{Colors.BOLD}{Colors.OKBLUE}└──────────────────────────────────────────────────────────────┘{Colors.ENDC}")
     input("\n메뉴로 돌아가려면 [Enter]를 누르세요...")
 
+def check_iperf3_installed():
+    """iperf3 설치 여부 확인"""
+    try:
+        subprocess.check_output(["iperf3", "--version"], stderr=subprocess.STDOUT)
+        return True
+    except:
+        return False
+
+def run_iperf_test():
+    """iperf3 속도 측정 측정"""
+    if not check_iperf3_installed():
+        print(f"\n {Colors.FAIL}❌ iperf3가 설치되어 있지 않습니다.{Colors.ENDC}")
+        print(f"    - macOS: brew install iperf3")
+        print(f"    - Ubuntu/Debian: sudo apt install iperf3")
+        print(f"    - CentOS/RHEL: sudo yum install iperf3")
+        return
+
+    print(f"\n{Colors.BOLD}{Colors.OKCYAN}📊 iperf3 네트워크 속도 측정{Colors.ENDC}")
+    server_ip = input(f" {Colors.BOLD}접속할 iperf3 서버 주소를 입력하세요 (기본: iperf.he.net) > {Colors.ENDC}").strip()
+    if not server_ip:
+        server_ip = "iperf.he.net"
+    
+    print(f" {Colors.OKBLUE}🔍 {server_ip} 서버에 연결 중... (10초간 측정){Colors.ENDC}")
+    try:
+        # -t 10 (10초), -c (client mode)
+        output = subprocess.check_output(["iperf3", "-c", server_ip, "-t", "5"], stderr=subprocess.STDOUT).decode()
+        
+        # 결과 요약 파싱 (간단히 마지막 전송률만 추출)
+        for line in output.splitlines():
+            if "receiver" in line:
+                print(f"\n {Colors.BOLD}{Colors.OKGREEN}✅ 측정 완료!{Colors.ENDC}")
+                print(f"    - 결과: {Colors.BOLD}{line.strip()}{Colors.ENDC}")
+                break
+        else:
+            print(f"\n {Colors.WARNING}⚠️ 측정은 완료되었으나 요약 정보를 파싱하지 못했습니다.{Colors.ENDC}")
+            print(output)
+            
+    except Exception as e:
+        print(f"\n {Colors.FAIL}❌ 에러 발생: {e}{Colors.ENDC}")
+        print(f"    - 서버 주소가 정확한지, 혹은 서버가 iperf3 -s로 실행 중인지 확인하세요.")
+
 def run_diagnosis():
     """기존 진단 로직 실행"""
     print("\n" + f"{Colors.BOLD}{Colors.HEADER}╔════════════════════════════════════════════════════════════╗")
@@ -237,7 +278,7 @@ def run_diagnosis():
     # 5. 혼잡제어 알고리즘
     cc = get_congestion_control()
     print(f"\n {Colors.BOLD}5. ⚖️ 혼잡제어 알고리즘{Colors.ENDC}  : {cc}")
-    if platform.system() == "Linux" and "cubic" in cc.lower():
+    if platform.system() == "Linux" and cc and "cubic" in cc.lower():
         print(f"    {Colors.WARNING}💡 Tip: 장거리 고속 전송 시 'bbr' 사용을 권장합니다.{Colors.ENDC}")
     
     # 6. 메모리 기반 가이드라인
@@ -255,6 +296,12 @@ def run_diagnosis():
     if "powersave" in gov.lower():
         print(f"    {Colors.FAIL}⚠️ 경고: 'powersave' 모드는 성능 저하의 원인이 됩니다.{Colors.ENDC}")
         print(f"    {Colors.OKGREEN}👉 권장: sudo cpupower frequency-set -g performance{Colors.ENDC}")
+
+    # iperf3 속도 테스트 수행 여부 확인
+    print(f"\n {Colors.BOLD}8. 📊 실시간 속도 측정 (Optional){Colors.ENDC}")
+    do_iperf = input(f"    iperf3를 사용하여 속도 측정을 수행하시겠습니까? (y/n) > ").strip().lower()
+    if do_iperf == 'y':
+        run_iperf_test()
 
     print("\n" + f"{Colors.OKBLUE}============================================================{Colors.ENDC}\n")
     input("메뉴로 돌아가려면 [Enter]를 누르세요...")
