@@ -40,6 +40,18 @@ def get_mtu(interface):
         return f"Error: {e}"
     return "Unknown"
 
+# ANSI Color Codes
+class Colors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 def get_physical_speed(interface):
     """물리 속도 체크 (ethtool 또는 networksetup/ifconfig)"""
     try:
@@ -48,79 +60,86 @@ def get_physical_speed(interface):
                 output = subprocess.check_output(["ethtool", interface], stderr=subprocess.STDOUT).decode()
                 for line in output.splitlines():
                     if "Speed:" in line:
-                        return line.split(":")[1].strip()
+                        speed = line.split(":")[1].strip()
+                        return f"{Colors.OKGREEN}{speed}{Colors.ENDC}"
             except:
-                return "ethtool not available or permission denied"
+                return f"{Colors.FAIL}ethtool not available or permission denied{Colors.ENDC}"
         elif platform.system() == "Darwin":
             try:
-                # ifconfig에서 media 확인
                 output = subprocess.check_output(["ifconfig", interface]).decode()
                 for line in output.splitlines():
                     if "media:" in line:
                         media_info = line.split("media:")[1].strip()
-                        if "(" in media_info:
-                            return media_info.split("(")[1].split(")")[0]
-                        return media_info
+                        speed = media_info.split("(")[1].split(")")[0] if "(" in media_info else media_info
+                        return f"{Colors.OKGREEN}{speed}{Colors.ENDC}"
                 return "Unknown"
             except:
-                return "ifconfig failed"
+                return f"{Colors.FAIL}ifconfig failed{Colors.ENDC}"
     except Exception as e:
-        return f"Error: {e}"
+        return f"{Colors.FAIL}Error: {e}{Colors.ENDC}"
     return "Unknown"
 
 def get_tcp_buffers():
-    """TCP/IP 버퍼 사이즈 추출"""
+    """TCP/IP 버퍼 사이즈 추출 (Linux 및 macOS 범용)"""
     buffers = {}
     try:
-        if platform.system() == "Linux":
-            # Linux는 min, default, max 3개 값이 나옴
-            rmem = subprocess.check_output(["sysctl", "net.ipv4.tcp_rmem"]).decode().strip()
-            wmem = subprocess.check_output(["sysctl", "net.ipv4.tcp_wmem"]).decode().strip()
-            # net.core.rmem_max, wmem_max도 중요함
-            rmem_max = subprocess.check_output(["sysctl", "net.core.rmem_max"]).decode().strip()
-            wmem_max = subprocess.check_output(["sysctl", "net.core.wmem_max"]).decode().strip()
-            
-            buffers['tcp_rmem (min default max)'] = rmem.split("=")[1].strip()
-            buffers['tcp_wmem (min default max)'] = wmem.split("=")[1].strip()
-            buffers['core_rmem_max'] = rmem_max.split("=")[1].strip()
-            buffers['core_wmem_max'] = wmem_max.split("=")[1].strip()
-        elif platform.system() == "Darwin":
-            send = subprocess.check_output(["sysctl", "net.inet.tcp.sendspace"]).decode().strip()
-            recv = subprocess.check_output(["sysctl", "net.inet.tcp.recvspace"]).decode().strip()
-            sb_max = subprocess.check_output(["sysctl", "kern.ipc.maxsockbuf"]).decode().strip()
-            
-            buffers['tcp_sendspace'] = send.split(":")[1].strip()
-            buffers['tcp_recvspace'] = recv.split(":")[1].strip()
-            buffers['kern.ipc.maxsockbuf'] = sb_max.split(":")[1].strip()
+        system = platform.system()
+        if system == "Linux":
+            # 리눅스는 거의 모든 배포판(CentOS, Ubuntu 등)이 동일한 경로를 사용합니다.
+            targets = {
+                'tcp_rmem (min default max)': "net.ipv4.tcp_rmem",
+                'tcp_wmem (min default max)': "net.ipv4.tcp_wmem",
+                'core_rmem_max': "net.core.rmem_max",
+                'core_wmem_max': "net.core.wmem_max"
+            }
+            for label, oid in targets.items():
+                try:
+                    val = subprocess.check_output(["sysctl", "-n", oid], stderr=subprocess.DEVNULL).decode().strip()
+                    buffers[label] = val
+                except:
+                    buffers[label] = "Not found"
+                    
+        elif system == "Darwin": # macOS
+            targets = {
+                'tcp_sendspace': "net.inet.tcp.sendspace",
+                'tcp_recvspace': "net.inet.tcp.recvspace",
+                'maxsockbuf': "kern.ipc.maxsockbuf"
+            }
+            for label, oid in targets.items():
+                try:
+                    val = subprocess.check_output(["sysctl", "-n", oid], stderr=subprocess.DEVNULL).decode().strip()
+                    buffers[label] = val
+                except:
+                    buffers[label] = "Not found"
     except Exception as e:
         return {"error": str(e)}
     return buffers
 
 def get_congestion_control():
-    """혼잡제어 알고리즘 확인"""
+    """혼잡제어 알고리즘 확인 (에러 메세지 노출 방지)"""
     try:
         if platform.system() == "Linux":
-            cc = subprocess.check_output(["sysctl", "net.ipv4.tcp_congestion_control"]).decode().strip()
-            return cc.split("=")[1].strip()
+            cc = subprocess.check_output(["sysctl", "-n", "net.ipv4.tcp_congestion_control"], stderr=subprocess.DEVNULL).decode().strip()
+            return f"{Colors.OKCYAN}{cc}{Colors.ENDC}"
         elif platform.system() == "Darwin":
-            # macOS는 sysctl로 직접 확인이 어려울 수 있음 (버전에 따라 다름)
-            # 보통 Cubic 또는 NewReno 사용
-            try:
-                cc = subprocess.check_output(["sysctl", "net.inet.tcp.cc_algo"]).decode().strip()
-                return cc.split(":")[1].strip()
-            except:
-                return "Default (likely Cubic or NewReno on macOS)"
-    except Exception as e:
-        return f"Error: {e}"
+            # macOS에서 cc_algo OID가 없는 경우가 있으므로 여러 후보를 확인
+            for oid in ["net.inet.tcp.cc_algo", "net.inet.tcp.available_congestion_control"]:
+                try:
+                    cc = subprocess.check_output(["sysctl", "-n", oid], stderr=subprocess.DEVNULL).decode().strip()
+                    if cc: return f"{Colors.OKCYAN}{cc}{Colors.ENDC}"
+                except:
+                    continue
+            return f"{Colors.OKCYAN}Default (Cubic/NewReno){Colors.ENDC}"
+    except Exception:
+        return f"{Colors.OKCYAN}Unknown{Colors.ENDC}"
     return "Unknown"
 
 def get_cpu_governor():
     """CPU Governor 확인 (Linux 위주)"""
     if platform.system() != "Linux":
-        return "N/A (macOS uses internal power management)"
+        return f"{Colors.OKBLUE}N/A (macOS Power Management){Colors.ENDC}"
     
     try:
-        # 모든 CPU에 대해 확인
         governors = set()
         for i in range(os.cpu_count() or 1):
             path = f"/sys/devices/system/cpu/cpu{i}/cpufreq/scaling_governor"
@@ -130,7 +149,11 @@ def get_cpu_governor():
         
         if not governors:
             return "Governor info not found"
-        return ", ".join(governors)
+        
+        res = ", ".join(governors)
+        if "performance" in res:
+            return f"{Colors.OKGREEN}{res}{Colors.ENDC}"
+        return f"{Colors.WARNING}{res}{Colors.ENDC}"
     except Exception as e:
         return f"Error: {e}"
 
@@ -138,12 +161,6 @@ def calculate_guidelines():
     """메모리 기반 네트워크 버퍼 가이드라인 계산"""
     total_mem = psutil.virtual_memory().total
     total_mem_gb = total_mem / (1024**3)
-    
-    # 고속 네트워크 튜닝 가이드 (10Gbps, 100ms RTT 기준 BDP = 125MB)
-    # 메모리 용량에 따른 제안:
-    # 16GB 미만: 최대 64MB
-    # 16GB - 64GB: 최대 128MB
-    # 64GB 이상: 최대 256MB~512MB
     
     if total_mem_gb < 16:
         suggested_mb = 64
@@ -153,8 +170,6 @@ def calculate_guidelines():
         suggested_mb = 512
         
     suggested_bytes = suggested_mb * 1024 * 1024
-    
-    # 시스템 메모리의 최대 5%를 초과하지 않도록 제한
     limit_bytes = int(total_mem * 0.05)
     if suggested_bytes > limit_bytes:
         suggested_bytes = limit_bytes
@@ -167,52 +182,55 @@ def calculate_guidelines():
     }
 
 def main():
-    print("\n" + "="*60)
-    print("   [NetTune] 고속 네트워크 환경 진단 및 튜닝 가이드")
-    print("="*60)
+    print("\n" + f"{Colors.BOLD}{Colors.HEADER}╔════════════════════════════════════════════════════════════╗")
+    print(f"║   🚀 [NetTune] 고속 네트워크 환경 진단 및 튜닝 가이드    ║")
+    print(f"╚════════════════════════════════════════════════════════════╝{Colors.ENDC}")
     
     # 1. 인터페이스 식별
     iface = get_default_interface()
-    print(f" 1. 외부 인터페이스    : {iface}")
+    print(f"\n {Colors.BOLD}1. 🌐 외부 인터페이스{Colors.ENDC}    : {Colors.OKBLUE}{iface}{Colors.ENDC}")
     
     if iface != "Not Found" and "Error" not in iface:
         # 2. 물리 속도
         speed = get_physical_speed(iface)
-        print(f" 2. 물리 속도 (Media)  : {speed}")
+        print(f" {Colors.BOLD}2. ⚡ 물리 속도 (Media){Colors.ENDC}  : {speed}")
         
         # 3. MTU
         mtu = get_mtu(iface)
-        print(f" 3. MTU 설정값         : {mtu}")
+        mtu_display = f"{Colors.OKGREEN}{mtu}{Colors.ENDC}" if int(mtu) >= 9000 else f"{Colors.WARNING}{mtu}{Colors.ENDC}"
+        print(f" {Colors.BOLD}3. 📦 MTU 설정값{Colors.ENDC}         : {mtu_display}")
         if mtu == "1500":
-            print("    * 고속망(Jumbo Frame) 사용 시 9000 설정을 권장합니다.")
+            print(f"    {Colors.WARNING}💡 Tip: 고속망(Jumbo Frame) 사용 시 9000 설정을 권장합니다.{Colors.ENDC}")
     
     # 4. TCP 버퍼 사이즈
-    print(f" 4. TCP/IP 버퍼 설정  :")
+    print(f"\n {Colors.BOLD}4. 🛠️ TCP/IP 버퍼 설정{Colors.ENDC}")
     buffers = get_tcp_buffers()
     for k, v in buffers.items():
-        print(f"    - {k:20}: {v}")
+        print(f"    - {k:20}: {Colors.OKCYAN}{v}{Colors.ENDC}")
         
     # 5. 혼잡제어 알고리즘
     cc = get_congestion_control()
-    print(f" 5. 혼잡제어 알고리즘  : {cc}")
+    print(f"\n {Colors.BOLD}5. ⚖️ 혼잡제어 알고리즘{Colors.ENDC}  : {cc}")
     if platform.system() == "Linux" and "cubic" in cc.lower():
-        print("    * 롱디스턴스(LFN) 환경에서는 'bbr' 또는 'htcp' 사용을 검토하세요.")
+        print(f"    {Colors.WARNING}💡 Tip: 장거리 고속 전송 시 'bbr' 사용을 권장합니다.{Colors.ENDC}")
     
     # 6. 메모리 기반 가이드라인
     guide = calculate_guidelines()
-    print(f" 6. 튜닝 가이드라인    :")
-    print(f"    - 시스템 총 메모리 : {guide['total_memory_gb']} GB")
-    print(f"    - 권장 최대 버퍼   : {guide['suggested_max_buffer_mb']} MB ({guide['suggested_max_buffer_bytes']} bytes)")
-    print(f"    * 10Gbps+ 환경에서는 BDP(Bandwidth-Delay Product)를 위해 위 수준의 확장이 필요합니다.")
+    print(f"\n {Colors.BOLD}6. 📝 튜닝 가이드라인{Colors.ENDC}")
+    print(f"    ┌────────────────────────────────────────────────────────┐")
+    print(f"    │  시스템 총 메모리 : {Colors.BOLD}{guide['total_memory_gb']:>6} GB{Colors.ENDC}                      │")
+    print(f"    │  권장 최대 버퍼   : {Colors.OKGREEN}{Colors.BOLD}{guide['suggested_max_buffer_mb']:>6} MB{Colors.ENDC} ({guide['suggested_max_buffer_bytes']} bytes)   │")
+    print(f"    └────────────────────────────────────────────────────────┘")
+    print(f"    * 10Gbps+ 환경에서는 BDP 확보를 위해 위 수준의 확장이 필요합니다.")
     
     # 7. CPU Governor
     gov = get_cpu_governor()
-    print(f" 7. CPU Governor       : {gov}")
+    print(f"\n {Colors.BOLD}7. ⚙️ CPU Governor{Colors.ENDC}       : {gov}")
     if "powersave" in gov.lower():
-        print("    ! 경고: 'powersave' 모드는 패킷 처리 지연을 유발할 수 있습니다.")
-        print("    ! 권장: sudo cpupower frequency-set -g performance")
+        print(f"    {Colors.FAIL}⚠️ 경고: 'powersave' 모드는 성능 저하의 원인이 됩니다.{Colors.ENDC}")
+        print(f"    {Colors.OKGREEN}👉 권장: sudo cpupower frequency-set -g performance{Colors.ENDC}")
 
-    print("="*60 + "\n")
+    print("\n" + f"{Colors.OKBLUE}============================================================{Colors.ENDC}\n")
 
 if __name__ == "__main__":
     main()
