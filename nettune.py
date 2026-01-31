@@ -224,12 +224,17 @@ def run_iperf_test():
     if not server_ip:
         server_ip = "iperf.he.net"
     
-    print(f" {Colors.OKBLUE}🔍 {server_ip} 서버에 연결 중... (10초간 측정){Colors.ENDC}")
+    print(f" {Colors.OKBLUE}🔍 {server_ip} 서버에 연결 중... (최대 10초 대기){Colors.ENDC}")
     try:
-        # -t 10 (10초), -c (client mode)
-        output = subprocess.check_output(["iperf3", "-c", server_ip, "-t", "5"], stderr=subprocess.STDOUT).decode()
+        # -t 5 (5초 측정), --connect-timeout (연결 타임아웃 5000ms)
+        # subprocess timeout=15 (전체 프로세스 강제 종료 타임아웃)
+        output = subprocess.check_output(
+            ["iperf3", "-c", server_ip, "-t", "5", "--connect-timeout", "5000"],
+            stderr=subprocess.STDOUT,
+            timeout=15
+        ).decode()
         
-        # 결과 요약 파싱 (간단히 마지막 전송률만 추출)
+        # 결과 요약 파싱
         for line in output.splitlines():
             if "receiver" in line:
                 print(f"\n {Colors.BOLD}{Colors.OKGREEN}✅ 측정 완료!{Colors.ENDC}")
@@ -239,9 +244,18 @@ def run_iperf_test():
             print(f"\n {Colors.WARNING}⚠️ 측정은 완료되었으나 요약 정보를 파싱하지 못했습니다.{Colors.ENDC}")
             print(output)
             
+    except subprocess.TimeoutExpired:
+        print(f"\n {Colors.FAIL}❌ 시간 초과: {server_ip} 서버로부터 응답이 없습니다. (Timeout){Colors.ENDC}")
+        print(f"    - 서버 주소가 올바른지, 혹은 방화벽에서 iperf3 포트(기본 5201)를 허용하는지 확인하세요.")
+    except subprocess.CalledProcessError as e:
+        print(f"\n {Colors.FAIL}❌ 연결 실패: {server_ip} 서버로 접근할 수 없습니다.{Colors.ENDC}")
+        error_msg = e.output.decode() if e.output else str(e)
+        if "connection refused" in error_msg.lower():
+            print(f"    - 서버에서 iperf3 서비스가 실행 중이지 않습니다 (Connection Refused).")
+        else:
+            print(f"    - 상세 에러: {error_msg.strip()}")
     except Exception as e:
-        print(f"\n {Colors.FAIL}❌ 에러 발생: {e}{Colors.ENDC}")
-        print(f"    - 서버 주소가 정확한지, 혹은 서버가 iperf3 -s로 실행 중인지 확인하세요.")
+        print(f"\n {Colors.FAIL}❌ 예상치 못한 에러 발생: {e}{Colors.ENDC}")
 
 def run_diagnosis():
     """기존 진단 로직 실행"""
