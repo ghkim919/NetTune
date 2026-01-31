@@ -311,14 +311,8 @@ def run_diagnosis():
         print(f"    {Colors.FAIL}⚠️ 경고: 'powersave' 모드는 성능 저하의 원인이 됩니다.{Colors.ENDC}")
         print(f"    {Colors.OKGREEN}👉 권장: sudo cpupower frequency-set -g performance{Colors.ENDC}")
 
-    # iperf3 속도 테스트 수행 여부 확인
-    print(f"\n {Colors.BOLD}8. 📊 실시간 속도 측정 (Optional){Colors.ENDC}")
-    do_iperf = input(f"    iperf3를 사용하여 속도 측정을 수행하시겠습니까? (y/n) > ").strip().lower()
-    if do_iperf == 'y':
-        run_iperf_test()
-
     print("\n" + f"{Colors.OKBLUE}============================================================{Colors.ENDC}\n")
-    input("메뉴로 돌아가려면 [Enter]를 누르세요...")
+    input("진단 결과 확인 완료 [Enter]를 누르면 메뉴로 이동합니다...")
 
 def measure_rtt(target):
     """실시간 핑 측정을 통한 평균 RTT 추출"""
@@ -410,6 +404,7 @@ def main():
         print(f"   1. {Colors.OKGREEN}네트워크 진단 시작{Colors.ENDC}")
         print(f"   2. {Colors.OKCYAN}각 진단 항목에 대한 설명 보기{Colors.ENDC}")
         print(f"   3. {Colors.OKBLUE}정밀 BDP(대역폭-지연) 계산기{Colors.ENDC}")
+        print(f"   4. {Colors.WARNING}실시간 속도 측정 (iperf3){Colors.ENDC}")
         print(f"   q. 종료")
         
         choice = input(f"\n {Colors.BOLD}입력하세요 > {Colors.ENDC}").strip().lower()
@@ -420,6 +415,9 @@ def main():
             show_explanations()
         elif choice == '3':
             run_precision_bdp_calculator()
+        elif choice == '4':
+            run_iperf_test()
+            input("\n측정 완료 [Enter]를 누르면 메뉴로 이동합니다...")
         elif choice == 'q':
             print(f"\n{Colors.OKBLUE}프로그램을 종료합니다. 감사합니다!{Colors.ENDC}\n")
             break
