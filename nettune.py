@@ -320,14 +320,96 @@ def run_diagnosis():
     print("\n" + f"{Colors.OKBLUE}============================================================{Colors.ENDC}\n")
     input("메뉴로 돌아가려면 [Enter]를 누르세요...")
 
+def measure_rtt(target):
+    """실시간 핑 측정을 통한 평균 RTT 추출"""
+    print(f" {Colors.OKBLUE}🔍 {target} 서버로 경로 품질(RTT) 측정 중...{Colors.ENDC}")
+    try:
+        # -c 4 (4번 전송), -t 4 (리눅스 타임아웃), -W 2 (맥 타임아웃)
+        count = 4
+        if platform.system() == "Darwin":
+            cmd = ["ping", "-c", str(count), "-t", "2", target]
+        else:
+            cmd = ["ping", "-c", str(count), "-W", "2", target]
+            
+        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode()
+        
+        # OS별 결과 파싱
+        # macOS/Linux 공통으로 'min/avg/max' 문자열 탐색
+        for line in output.splitlines():
+            if "min/avg/max" in line:
+                # 23.456/25.789/30.123/2.345 ms 형태에서 avg 추출
+                stats = line.split("=")[1].strip().split("/")
+                avg_rtt = float(stats[1])
+                return avg_rtt
+    except Exception as e:
+        return None
+    return None
+
+def run_precision_bdp_calculator():
+    """정밀 BDP 계산기 인터페이스"""
+    print(f"\n{Colors.BOLD}{Colors.OKCYAN}🗺️ 정밀 BDP(Bandwidth-Delay Product) 계산기{Colors.ENDC}")
+    print(" 고속 전송을 위해서는 거리(지연시간)에 비례하는 버퍼 크기가 필요합니다.")
+    
+    # 1. 대상 선택
+    print(f"\n {Colors.BOLD}1) 측정 대상 선택{Colors.ENDC}")
+    print("   [1] 직접 IP/도메인 입력 (실시간 측정)")
+    print("   [2] 주요 지역 평균값 사용 (미국 동부: 180ms, 유럽: 250ms 등)")
+    
+    sub_choice = input(f"\n {Colors.BOLD}선택 > {Colors.ENDC}").strip()
+    
+    rtt = 0
+    if sub_choice == '1':
+        target = input(f" {Colors.BOLD}대상 IP 또는 도메인 입력 > {Colors.ENDC}").strip()
+        if not target: target = "8.8.8.8"
+        avg_rtt = measure_rtt(target)
+        if avg_rtt:
+            print(f" {Colors.OKGREEN}✅ 측정된 평균 RTT: {avg_rtt} ms{Colors.ENDC}")
+            rtt = avg_rtt
+        else:
+            print(f" {Colors.FAIL}❌ 핑 측정에 실패했습니다. 기본값 100ms를 사용합니다.{Colors.ENDC}")
+            rtt = 100
+    else:
+        print(f"\n {Colors.BOLD}지역 선택{Colors.ENDC}")
+        print("   1. 국내 (서울-대전 등): ~10ms")
+        print("   2. 미국 서부 (LA/SF): ~140ms")
+        print("   3. 미국 동부 (NY/DC): ~200ms")
+        print("   4. 유럽 (런던/프랑크푸르트): ~260ms")
+        reg_choice = input(f" {Colors.BOLD}선택 > {Colors.ENDC}").strip()
+        rtt_map = {'1': 10, '2': 140, '3': 200, '4': 260}
+        rtt = rtt_map.get(reg_choice, 100)
+        print(f" {Colors.OKGREEN}✅ 선택된 지역 RTT: {rtt} ms{Colors.ENDC}")
+
+    # 2. 대역폭 입력
+    print(f"\n {Colors.BOLD}2) 목표 네트워크 대역폭 입력{Colors.ENDC}")
+    bw_input = input(f" {Colors.BOLD}대역폭 (Gbps 단위, 기본: 10) > {Colors.ENDC}").strip()
+    try:
+        bandwidth_gbps = float(bw_input) if bw_input else 10.0
+    except:
+        bandwidth_gbps = 10.0
+
+    # 3. BDP 계산
+    # BDP (bytes) = (Bandwidth in bits/sec * RTT in seconds) / 8
+    bdp_bytes = int((bandwidth_gbps * 10**9 * (rtt / 1000.0)) / 8)
+    bdp_mb = bdp_bytes / (1024 * 1024)
+
+    print(f"\n{Colors.BOLD}{Colors.HEADER}📊 정밀 계산 결과{Colors.ENDC}")
+    print(f" ┌────────────────────────────────────────────────────────┐")
+    print(f" │  목표 대역폭     : {Colors.BOLD}{bandwidth_gbps:>10} Gbps{Colors.ENDC}                    │")
+    print(f" │  지연시간(RTT)   : {Colors.BOLD}{rtt:>10} ms{Colors.ENDC}                      │")
+    print(f" │  {Colors.OKGREEN}최적 TCP 버퍼   : {Colors.BOLD}{bdp_mb:>10.2f} MB{Colors.ENDC} ({bdp_bytes} bytes) │")
+    print(f" └────────────────────────────────────────────────────────┘")
+    print(f" * 위 거리에서 {bandwidth_gbps}Gbps를 다 쓰려면 버퍼가 최소 {int(bdp_mb)}MB 이상이어야 합니다.")
+    
+    input("\n메뉴로 돌아가려면 [Enter]를 누르세요...")
+
 def main():
     while True:
-        # OS 터미널 클리어 (선택 사항이나 깔끔하게 보이기 위해 사용)
         # os.system('cls' if os.name == 'nt' else 'clear')
         
         print(f"\n{Colors.BOLD}{Colors.HEADER}   [ NetTune: 네트워크 최적화 도구 ]{Colors.ENDC}")
         print(f"   1. {Colors.OKGREEN}네트워크 진단 시작{Colors.ENDC}")
         print(f"   2. {Colors.OKCYAN}각 진단 항목에 대한 설명 보기{Colors.ENDC}")
+        print(f"   3. {Colors.OKBLUE}정밀 BDP(대역폭-지연) 계산기{Colors.ENDC}")
         print(f"   q. 종료")
         
         choice = input(f"\n {Colors.BOLD}입력하세요 > {Colors.ENDC}").strip().lower()
@@ -336,6 +418,8 @@ def main():
             run_diagnosis()
         elif choice == '2':
             show_explanations()
+        elif choice == '3':
+            run_precision_bdp_calculator()
         elif choice == 'q':
             print(f"\n{Colors.OKBLUE}프로그램을 종료합니다. 감사합니다!{Colors.ENDC}\n")
             break
