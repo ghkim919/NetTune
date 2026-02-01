@@ -350,11 +350,15 @@ def run_precision_bdp_calculator():
     print("   [1] 직접 IP/도메인 입력 (실시간 측정)")
     print("   [2] 주요 지역 평균값 사용 (미국 동부: 180ms, 유럽: 250ms 등)")
     
-    sub_choice = input(f"\n {Colors.BOLD}선택 > {Colors.ENDC}").strip()
+    while True:
+        sub_choice = input(f"\n {Colors.BOLD}선택 > {Colors.ENDC}").strip()
+        if sub_choice in ['1', '2']:
+            break
+        print(f" {Colors.FAIL}❌ 잘못된 선택입니다. 1 또는 2를 입력해주세요.{Colors.ENDC}")
     
     rtt = 0
     if sub_choice == '1':
-        target = input(f" {Colors.BOLD}대상 IP 또는 도메인 입력 > {Colors.ENDC}").strip()
+        target = input(f" {Colors.BOLD}대상 IP 또는 도메인 입력 (기본: 8.8.8.8) > {Colors.ENDC}").strip()
         if not target: target = "8.8.8.8"
         avg_rtt = measure_rtt(target)
         if avg_rtt:
@@ -369,18 +373,30 @@ def run_precision_bdp_calculator():
         print("   2. 미국 서부 (LA/SF): ~140ms")
         print("   3. 미국 동부 (NY/DC): ~200ms")
         print("   4. 유럽 (런던/프랑크푸르트): ~260ms")
-        reg_choice = input(f" {Colors.BOLD}선택 > {Colors.ENDC}").strip()
+        
         rtt_map = {'1': 10, '2': 140, '3': 200, '4': 260}
-        rtt = rtt_map.get(reg_choice, 100)
+        while True:
+            reg_choice = input(f" {Colors.BOLD}선택 > {Colors.ENDC}").strip()
+            if reg_choice in rtt_map:
+                rtt = rtt_map[reg_choice]
+                break
+            print(f" {Colors.FAIL}❌ 잘못된 지역 선택입니다. 1~4번 중 하나를 입력해주세요.{Colors.ENDC}")
+        
         print(f" {Colors.OKGREEN}✅ 선택된 지역 RTT: {rtt} ms{Colors.ENDC}")
 
     # 2. 대역폭 입력
-    print(f"\n {Colors.BOLD}2) 목표 네트워크 대역폭 입력{Colors.ENDC}")
-    bw_input = input(f" {Colors.BOLD}대역폭 (Gbps 단위, 기본: 10) > {Colors.ENDC}").strip()
-    try:
-        bandwidth_gbps = float(bw_input) if bw_input else 10.0
-    except:
-        bandwidth_gbps = 10.0
+    while True:
+        bw_input = input(f" {Colors.BOLD}대역폭 (Gbps 단위, 기본: 10) > {Colors.ENDC}").strip()
+        if not bw_input:
+            bandwidth_gbps = 10.0
+            break
+        try:
+            bandwidth_gbps = float(bw_input)
+            if bandwidth_gbps > 0:
+                break
+            print(f" {Colors.FAIL}❌ 대역폭은 0보다 커야 합니다.{Colors.ENDC}")
+        except ValueError:
+            print(f" {Colors.FAIL}❌ 숫자를 입력해 주세요. (예: 1, 2.5, 10){Colors.ENDC}")
 
     # 3. BDP 계산
     # BDP (bytes) = (Bandwidth in bits/sec * RTT in seconds) / 8
