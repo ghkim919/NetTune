@@ -287,7 +287,8 @@ def run_diagnosis():
     print(f"\n {Colors.BOLD}4. 🛠️ TCP/IP 버퍼 설정{Colors.ENDC}")
     buffers = get_tcp_buffers()
     for k, v in buffers.items():
-        print(f"    - {k:20}: {Colors.OKCYAN}{v}{Colors.ENDC}")
+        v_display = f"{v} bytes" if v != "Not found" else v
+        print(f"    - {k:20}: {Colors.OKCYAN}{v_display}{Colors.ENDC}")
         
     # 5. 혼잡제어 알고리즘
     cc = get_congestion_control()
