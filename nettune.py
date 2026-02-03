@@ -2,7 +2,7 @@ import sys
 from utils import Colors
 from diagnosis import run_diagnosis, show_explanations
 from test import run_iperf_test, run_precision_bdp_calculator
-from tuning import apply_tuning_placeholder
+import tuning
 
 def main_menu_diagnosis():
     """진단 기능 서브메뉴"""
@@ -38,17 +38,8 @@ def main_menu_test():
             break
 
 def main_menu_tuning():
-    """튜닝 기능 서브메뉴"""
-    while True:
-        print(f"\n{Colors.BOLD}{Colors.HEADER}   [ 3. 튜닝 기능 ]{Colors.ENDC}")
-        print(f"   1. {Colors.FAIL}시스템 최적화 자동 적용 (준비 중){Colors.ENDC}")
-        print(f"   b. {Colors.BOLD}뒤로 가기{Colors.ENDC}")
-        
-        choice = input(f"\n {Colors.BOLD}선택 > {Colors.ENDC}").strip().lower()
-        if choice == '1':
-            apply_tuning_placeholder()
-        elif choice == 'b':
-            break
+    """튜닝 및 설정 관리 서브메뉴"""
+    tuning.apply_tuning_placeholder()
 
 def main():
     while True:

@@ -124,7 +124,10 @@ def get_tcp_buffers():
             targets = {
                 'tcp_sendspace': "net.inet.tcp.sendspace",
                 'tcp_recvspace': "net.inet.tcp.recvspace",
-                'maxsockbuf': "kern.ipc.maxsockbuf"
+                'maxsockbuf': "kern.ipc.maxsockbuf",
+                'autorcvbufmax': "net.inet.tcp.autorcvbufmax",
+                'autosndbufmax': "net.inet.tcp.autosndbufmax",
+                'win_scale_factor': "net.inet.tcp.win_scale_factor"
             }
             for label, oid in targets.items():
                 try:
