@@ -166,10 +166,22 @@ def show_backup_list():
                     print(f" │ - MTU             : {content['settings']['mtu']:<36} │")
                     print(f" └───────────────────────────────────────────────────────┘")
                     
-                    sub_choice = input(f"\n{Colors.OKGREEN}[a] 이 설정을 지금 적용(Restore){Colors.ENDC} / [Enter] 목록으로 : ").strip().lower()
+                    print(f"\n {Colors.OKGREEN}[a] 이 설정을 지금 적용(Restore){Colors.ENDC}")
+                    print(f" {Colors.FAIL}[d] 이 백업 파일 삭제{Colors.ENDC}")
+                    print(f" [Enter] 목록으로")
+                    
+                    sub_choice = input(f"\n{Colors.BOLD}선택 > {Colors.ENDC}").strip().lower()
                     if sub_choice == 'a':
                         restore_config(content)
                         break
+                    elif sub_choice == 'd':
+                        confirm = input(f"\n{Colors.WARNING}⚠️ 정말로 이 백업을 삭제하시겠습니까? (y/n) > {Colors.ENDC}").strip().lower()
+                        if confirm == 'y':
+                            if config_manager.delete_config_file(backups[idx]):
+                                backups = config_manager.list_backups() # 목록 갱신
+                                if not backups:
+                                    print(f"\n{Colors.WARNING}ℹ️ 더 이상 저장된 백업 파일이 없습니다.{Colors.ENDC}")
+                                    break
             else:
                 print(f"{Colors.FAIL}❌ 잘못된 번호입니다.{Colors.ENDC}")
 

@@ -68,3 +68,18 @@ def load_config_file(filename):
     except Exception as e:
         print(f"\n{Colors.FAIL}❌ 파일 읽기 오류: {e}{Colors.ENDC}")
         return None
+
+def delete_config_file(filename):
+    """특정 백업 파일을 삭제"""
+    filepath = os.path.join(CONFIG_DIR, filename)
+    try:
+        if os.path.exists(filepath):
+            os.remove(filepath)
+            print(f"\n{Colors.OKGREEN}✅ 설정 파일이 삭제되었습니다.{Colors.ENDC}")
+            return True
+        else:
+            print(f"\n{Colors.FAIL}❌ 파일을 찾을 수 없습니다.{Colors.ENDC}")
+            return False
+    except Exception as e:
+        print(f"\n{Colors.FAIL}❌ 파일 삭제 중 오류 발생: {e}{Colors.ENDC}")
+        return False
