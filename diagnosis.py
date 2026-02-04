@@ -27,24 +27,54 @@ def calculate_guidelines():
     }
 
 def show_explanations():
-    """각 진단 항목에 대한 상세 설명 출력"""
-    print(f"\n{Colors.BOLD}{Colors.OKBLUE}┌────────────────── 각 항목에 대한 상세 설명 ──────────────────┐{Colors.ENDC}")
+    """각 진단 항목에 대한 상세 설명 및 튜닝 가이드 정보 출력"""
+    print(f"\n{Colors.BOLD}{Colors.OKBLUE}┌──────────────────────────────────────────────────────────────┐{Colors.ENDC}")
+    print(f"{Colors.BOLD}{Colors.OKBLUE}│              🌐 NetTune 네트워크 기술 가이드              │{Colors.ENDC}")
+    print(f"{Colors.BOLD}{Colors.OKBLUE}└──────────────────────────────────────────────────────────────┘{Colors.ENDC}")
     
     explanations = [
-        ("🌐 외부 인터페이스", "분석 대상으로 선택된 네트워크 장치입니다."),
-        ("⚡ 물리 속도", "랜카드와 케이블이 지원하는 '최대 대역폭'입니다.\n                       1Gbps망인데 100Mbps로 잡혀있다면 케이블 등을 점검해야 합니다."),
-        ("📦 MTU", "데이터를 보낼 때 한 번에 담는 상자의 크기입니다.\n                       기본은 1500이며, 고속망에서는 9000(점보 프레임)으로 키우면 효율이 좋아집니다."),
-        ("🛠️ TCP/IP 버퍼", "데이터 전송 중 임시로 저장되는 장소입니다. 고속망에서 이 공간이\n                       너무 작으면 데이터 손실이 발생하여 속도가 급격히 떨어집니다."),
-        ("⚖️ 혼잡제어 알고리즘", "네트워크가 혼잡할 때 전송 속도를 조절하는 '교통 경찰' 역할입니다.\n                       BBR과 같은 현대적 알고리즘은 장거리 전송 시 속도를 크게 높여줍니다."),
-        ("📝 튜닝 가이드라인", "사용자의 메모리 용량에 맞춰, 시스템이 감당할 수 있으면서도\n                       최상의 속도를 낼 수 있는 최적의 버퍼 크기를 계산해 드립니다."),
-        ("⚙️ CPU Governor", "CPU의 성능 모드입니다. 'PowerSave' 모드일 경우 데이터 처리가 지연될 수\n                       있으므로 'Performance' 모드 사용을 권장합니다.")
+        ("⚡ 물리 속도 (Link Speed)", 
+         "현재 OS가 인식하는 랜카드의 물리적 연결 속도입니다.\n"
+         "      - 1Gbps 환경에서 100Mbps로 표시된다면 케이블(Cat.5e 이상 필수)이나\n"
+         "        스위치 포트 불량을 의심해 봐야 합니다."),
+        
+        ("📦 MTU (Maximum Transmission Unit)", 
+         "한 번의 프레임에 담을 수 있는 최대 데이터 크기(기본 1500)입니다.\n"
+         "      - 고속망(10G+)에서는 9000(Jumbo Frame)으로 설정 시 헤더 오버헤드를\n"
+         "        줄여 CPU 부하를 낮추고 실제 전송 효율을 극대화합니다."),
+        
+        ("🛠️ TCP/IP 버퍼 (Window Size & BDP)", 
+         "전송 중인 데이터를 임시 보관하는 메모리 공간입니다.\n"
+         "      - BDP(대역폭 x 지연시간)만큼의 공간이 확보되어야 끊김 없는 전송이 가능합니다.\n"
+         "      - macOS: sendspace/recvspace는 초기 크기, maxbuf는 최대 한계치를 의미합니다.\n"
+         "      - Linux: min/default/max 3단계로 관리되며 대역폭에 맞춰 max 확장이 필수입니다."),
+        
+        ("⚖️ 혼잡제어 알고리즘 (Congestion Control)", 
+         "네트워크 혼잡 시 전송 속도를 지능적으로 조절하는 로직입니다.\n"
+         "      - Cubic: 고전적인 표준 기반 알고리즘 (대부분의 OS 기본값)\n"
+         "      - BBR: Google 개발 알고리즘. 패킷 손실이 잦은 장거리(LFN) 망에서\n"
+         "             압도적인 속도 향상을 보여줍니다."),
+        
+        ("📝 튜닝 가이드라인 (NetTune Recommendation)", 
+         "현재 시스템의 RAM 용량을 분석하여 최적의 버퍼 크기를 제안합니다.\n"
+         "      - 너무 작으면 속도가 제한되고, 너무 크면 시스템 메모리가 고갈될 수 있습니다.\n"
+         "      - NetTune은 전체 메모리의 5% 이내에서 최적의 안정 수치를 계산합니다."),
+        
+        ("⚙️ CPU Governor (Power Management)", 
+         "CPU의 동작 클럭 전략입니다.\n"
+         "      - Performance: 성능 우선. 네트워크 패킷 처리 지연(Latency)을 최소화합니다.\n"
+         "      - PowerSave: 전력 저감. 대량의 패킷 처리 시 병목이 발생할 수 있습니다.")
     ]
     
     for title, desc in explanations:
-        print(f"  {Colors.BOLD}{title}{Colors.ENDC}")
-        print(f"    {desc}\n")
+        print(f"\n  {Colors.BOLD}{Colors.OKCYAN}▶ {title}{Colors.ENDC}")
+        print(f"    {desc}")
     
-    print(f"{Colors.BOLD}{Colors.OKBLUE}└──────────────────────────────────────────────────────────────┘{Colors.ENDC}")
+    print(f"\n{Colors.BOLD}{Colors.OKBLUE}────────────────────────────────────────────────────────────────{Colors.ENDC}")
+    print(f" {Colors.BOLD}💡 Tip: 튜닝 설정 적용 후에는 반드시 네트워크를 재시작하거나{Colors.ENDC}")
+    print(f" {Colors.BOLD}    재부팅을 해야 시스템 전체에 완벽히 반영될 수 있습니다.{Colors.ENDC}")
+    print(f"{Colors.BOLD}{Colors.OKBLUE}────────────────────────────────────────────────────────────────{Colors.ENDC}")
+    
     input("\n메뉴로 돌아가려면 [Enter]를 누르세요...")
 
 def select_interface():
