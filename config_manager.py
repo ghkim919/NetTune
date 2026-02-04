@@ -2,7 +2,7 @@ import os
 import json
 import platform
 from datetime import datetime
-from utils import Colors, get_tcp_buffers, get_congestion_control, get_mtu, get_default_interface
+from utils import Colors, Messenger, get_tcp_buffers, get_congestion_control, get_mtu, get_default_interface
 
 # 설정 저장 디렉토리 이름
 CONFIG_DIR = "config_list"
@@ -45,11 +45,11 @@ def save_config(label=""):
     try:
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(current_config, f, indent=4, ensure_ascii=False)
-        print(f"\n{Colors.OKGREEN}✅ 설정 백업 성공!{Colors.ENDC}")
-        print(f"    - 파일명: {Colors.BOLD}{filename}{Colors.ENDC}")
+        Messenger.success("SUCCESS_BACKUP")
+        print(f"    - 파일명: {Messenger.highlight(filename)}")
         return filename
     except Exception as e:
-        print(f"\n{Colors.FAIL}❌ 백업 저장 중 오류 발생: {e}{Colors.ENDC}")
+        Messenger.error(f"ERROR_SAVE: {e}")
         return None
 
 def list_backups():
@@ -66,7 +66,7 @@ def load_config_file(filename):
         with open(filepath, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
-        print(f"\n{Colors.FAIL}❌ 파일 읽기 오류: {e}{Colors.ENDC}")
+        Messenger.error(f"ERROR_READ: {e}")
         return None
 
 def delete_config_file(filename):
@@ -75,11 +75,11 @@ def delete_config_file(filename):
     try:
         if os.path.exists(filepath):
             os.remove(filepath)
-            print(f"\n{Colors.OKGREEN}✅ 설정 파일이 삭제되었습니다.{Colors.ENDC}")
+            Messenger.success("SUCCESS_DELETE")
             return True
         else:
-            print(f"\n{Colors.FAIL}❌ 파일을 찾을 수 없습니다.{Colors.ENDC}")
+            Messenger.error("FILE_NOT_FOUND")
             return False
     except Exception as e:
-        print(f"\n{Colors.FAIL}❌ 파일 삭제 중 오류 발생: {e}{Colors.ENDC}")
+        Messenger.error(f"ERROR_DELETE: {e}")
         return False

@@ -1,5 +1,5 @@
 import sys
-from utils import Colors
+from utils import Colors, Messenger
 from diagnosis import run_diagnosis, show_explanations
 from test import run_iperf_test, run_precision_bdp_calculator
 import tuning
@@ -57,10 +57,10 @@ def main():
         elif choice == '3':
             main_menu_tuning()
         elif choice == 'q':
-            print(f"\n{Colors.OKBLUE}프로그램을 종료합니다. 감사합니다!{Colors.ENDC}\n")
+            Messenger.success("EXIT_APP", bold=False)
             break
         else:
-            print(f"{Colors.FAIL}잘못된 입력입니다. 다시 시도해 주세요.{Colors.ENDC}")
+            Messenger.error("INVALID_INPUT")
 
 if __name__ == "__main__":
     main()

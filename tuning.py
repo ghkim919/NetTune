@@ -1,6 +1,6 @@
 import platform
 import subprocess
-from utils import Colors
+from utils import Colors, Messenger
 import config_manager
 from diagnosis import calculate_guidelines
 
@@ -27,12 +27,13 @@ def _apply_mac_tuning():
     
     choice = input(f"\n{Colors.BOLD}선택 (1 또는 2) > {Colors.ENDC}").strip()
     if choice not in ['1', '2']:
-        print(f"{Colors.WARNING}취소되었습니다.{Colors.ENDC}")
+        Messenger.warn("CANCELLED")
         return
 
     target_val = esnet_val if choice == '1' else nettune_val
     
-    confirm = input(f"\n{Colors.WARNING}⚠️ 설정을 적용하시겠습니까? (y/n) > {Colors.ENDC}").strip().lower()
+    Messenger.warn("CONFIRM_APPLY", bold=True)
+    confirm = input(f" {Colors.BOLD}(y/n) > {Colors.ENDC}").strip().lower()
     if confirm == 'y':
         config_manager.save_config("bk")
         print(f"\n{Colors.BOLD}🛠️ 설정 적용 중...{Colors.ENDC}")
@@ -42,7 +43,7 @@ def _apply_mac_tuning():
         success &= run_sysctl_command("net.inet.tcp.autosndbufmax", target_val)
         
         if success:
-            print(f"\n{Colors.BOLD}{Colors.OKGREEN}🎉 최적화 설정이 완료되었습니다!{Colors.ENDC}")
+            Messenger.success("SUCCESS_TUNING")
         input("\n계속하려면 [Enter]를 누르세요...")
 
 def apply_highspeed_tuning():
@@ -51,15 +52,15 @@ def apply_highspeed_tuning():
     if system == "Darwin":
         _apply_mac_tuning()
     elif system == "Linux":
-        print(f"\n{Colors.WARNING}ℹ️ Linux용 고속망 튜닝은 현재 준비 중입니다.{Colors.ENDC}")
+        Messenger.info("FEATURE_COMING_SOON")
         input("\n[Enter]를 누르면 돌아갑니다...")
     else:
-        print(f"\n{Colors.FAIL}❌ 지원하지 않는 OS입니다: {system}{Colors.ENDC}")
+        Messenger.error(f"OS_NOT_SUPPORTED: {system}")
 
 def _reset_mac_defaults():
     """macOS 기본값 복원 로직"""
-    print(f"\n{Colors.WARNING}⚠️ macOS 네트워크 설정을 표준 기본값으로 초기화합니다.{Colors.ENDC}")
-    confirm = input(" 계속하시겠습니까? (y/n) > ").strip().lower()
+    Messenger.warn("CONFIRM_RESET", bold=True)
+    confirm = input(f" {Colors.BOLD}(y/n) > {Colors.ENDC}").strip().lower()
     
     if confirm == 'y':
         config_manager.save_config("bk")
@@ -75,7 +76,7 @@ def _reset_mac_defaults():
         for oid, val in defaults.items():
             success &= run_sysctl_command(oid, val)
         if success:
-            print(f"\n{Colors.BOLD}{Colors.OKGREEN}🎉 기본값으로 복원되었습니다!{Colors.ENDC}")
+            Messenger.success("SUCCESS_RESTORE")
         input("\n계속하려면 [Enter]를 누르세요...")
 
 def reset_to_defaults():
@@ -84,18 +85,19 @@ def reset_to_defaults():
     if system == "Darwin":
         _reset_mac_defaults()
     elif system == "Linux":
-        print(f"\n{Colors.WARNING}ℹ️ Linux용 초기화 기능은 현재 준비 중입니다.{Colors.ENDC}")
+        Messenger.info("FEATURE_COMING_SOON")
         input("\n[Enter]를 누르면 돌아갑니다...")
     else:
-        print(f"\n{Colors.FAIL}❌ 지원하지 않는 OS입니다: {system}{Colors.ENDC}")
+        Messenger.error(f"OS_NOT_SUPPORTED: {system}")
 
 def restore_config(content):
     """백업 데이터로부터 시스템 설정을 복원/적용"""
-    print(f"\n{Colors.WARNING}⚠️ 백업 설정을 시스템에 적용합니다. (sudo 권한 필요){Colors.ENDC}")
-    confirm = input(" 이 설정을 적용하시겠습니까? (y/n) > ").strip().lower()
+    Messenger.warn("SUDO_REQUIRED")
+    Messenger.warn("CONFIRM_APPLY", bold=True)
+    confirm = input(f" {Colors.BOLD}(y/n) > {Colors.ENDC}").strip().lower()
     
     if confirm != 'y':
-        print(f"{Colors.WARNING}적용이 취소되었습니다.{Colors.ENDC}")
+        Messenger.warn("CANCELLED")
         return
 
     success = True
@@ -127,9 +129,9 @@ def restore_config(content):
                 success = False
 
     if success:
-        print(f"\n{Colors.BOLD}{Colors.OKGREEN}🎉 설정 복원이 완료되었습니다!{Colors.ENDC}")
+        Messenger.success("SUCCESS_RESTORE")
     else:
-        print(f"\n{Colors.FAIL}⚠️ 일부 설정 복원에 실패했습니다.{Colors.ENDC}")
+        Messenger.error("ERROR_RESTORE")
     
     input("\n계속하려면 [Enter]를 누르세요...")
 
@@ -138,7 +140,7 @@ def show_backup_list():
     backups = config_manager.list_backups()
     
     if not backups:
-        print(f"\n{Colors.WARNING}ℹ️ 저장된 백업 파일이 없습니다.{Colors.ENDC}")
+        Messenger.info("FILE_NOT_FOUND")
         return
 
     while True:
@@ -175,15 +177,16 @@ def show_backup_list():
                         restore_config(content)
                         break
                     elif sub_choice == 'd':
-                        confirm = input(f"\n{Colors.WARNING}⚠️ 정말로 이 백업을 삭제하시겠습니까? (y/n) > {Colors.ENDC}").strip().lower()
+                        Messenger.warn("CONFIRM_DELETE", bold=True)
+                        confirm = input(f" {Colors.BOLD}(y/n) > {Colors.ENDC}").strip().lower()
                         if confirm == 'y':
                             if config_manager.delete_config_file(backups[idx]):
                                 backups = config_manager.list_backups() # 목록 갱신
                                 if not backups:
-                                    print(f"\n{Colors.WARNING}ℹ️ 더 이상 저장된 백업 파일이 없습니다.{Colors.ENDC}")
+                                    Messenger.info("FILE_NOT_FOUND")
                                     break
             else:
-                print(f"{Colors.FAIL}❌ 잘못된 번호입니다.{Colors.ENDC}")
+                Messenger.error("INVALID_INPUT")
 
 def apply_tuning_placeholder():
     """튜닝 메뉴 메인 루프"""

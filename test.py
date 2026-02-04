@@ -1,6 +1,6 @@
 import platform
 import subprocess
-from utils import Colors
+from utils import Colors, Messenger
 
 def check_iperf3_installed():
     """iperf3 설치 여부 확인"""
@@ -13,7 +13,7 @@ def check_iperf3_installed():
 def run_iperf_test():
     """iperf3 속도 측정 측정"""
     if not check_iperf3_installed():
-        print(f"\n {Colors.FAIL}❌ iperf3가 설치되어 있지 않습니다.{Colors.ENDC}")
+        Messenger.error("IPERF3_NOT_FOUND")
         print(f"    - macOS: brew install iperf3")
         print(f"    - Ubuntu/Debian: sudo apt install iperf3")
         print(f"    - CentOS/RHEL: sudo yum install iperf3")
@@ -34,21 +34,21 @@ def run_iperf_test():
         
         for line in output.splitlines():
             if "receiver" in line:
-                print(f"\n {Colors.BOLD}{Colors.OKGREEN}✅ 측정 완료!{Colors.ENDC}")
-                print(f"    - 결과: {Colors.BOLD}{line.strip()}{Colors.ENDC}")
+                Messenger.success("MEASURE_SUCCESS")
+                print(f"    - 결과: {Messenger.highlight(line.strip())}")
                 break
         else:
             print(f"\n {Colors.WARNING}⚠️ 측정은 완료되었으나 요약 정보를 파싱하지 못했습니다.{Colors.ENDC}")
             print(output)
             
     except subprocess.TimeoutExpired:
-        print(f"\n {Colors.FAIL}❌ 시간 초과: {server_ip} 서버로부터 응답이 없습니다. (Timeout){Colors.ENDC}")
+        Messenger.error(f"시간 초과: {server_ip} 서버로부터 응답이 없습니다.")
     except subprocess.CalledProcessError as e:
-        print(f"\n {Colors.FAIL}❌ 연결 실패: {server_ip} 서버로 접근할 수 없습니다.{Colors.ENDC}")
+        Messenger.error(f"연결 실패: {server_ip} 서버로 접근할 수 없습니다.")
         error_msg = e.output.decode() if e.output else str(e)
         print(f"    - 상세 에러: {error_msg.strip()}")
     except Exception as e:
-        print(f"\n {Colors.FAIL}❌ 예상치 못한 에러 발생: {e}{Colors.ENDC}")
+        Messenger.error(f"예상치 못한 에러 발생: {e}")
 
 def measure_rtt(target):
     """실시간 핑 측정을 통한 평균 RTT 추출"""
@@ -83,7 +83,7 @@ def run_precision_bdp_calculator():
         sub_choice = input(f"\n {Colors.BOLD}선택 > {Colors.ENDC}").strip()
         if sub_choice in ['1', '2']:
             break
-        print(f" {Colors.FAIL}❌ 잘못된 선택입니다.{Colors.ENDC}")
+        Messenger.error("INVALID_INPUT")
     
     rtt = 0
     if sub_choice == '1':
@@ -91,10 +91,10 @@ def run_precision_bdp_calculator():
         if not target: target = "8.8.8.8"
         avg_rtt = measure_rtt(target)
         if avg_rtt:
-            print(f" {Colors.OKGREEN}✅ 측정된 평균 RTT: {avg_rtt} ms{Colors.ENDC}")
+            Messenger.success(f"측정된 평균 RTT: {avg_rtt} ms")
             rtt = avg_rtt
         else:
-            print(f" {Colors.FAIL}❌ 핑 측정에 실패했습니다. 기본값 100ms를 사용합니다.{Colors.ENDC}")
+            Messenger.error("핑 측정에 실패했습니다. 기본값 100ms를 사용합니다.")
             rtt = 100
     else:
         print(f"\n {Colors.BOLD}지역 선택{Colors.ENDC}")

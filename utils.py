@@ -14,6 +14,64 @@ class Colors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+class Messenger:
+    """메시지 출력 관리 클래스"""
+    
+    # 공통 메시지 정의
+    MESSAGES = {
+        "INVALID_INPUT": "잘못된 입력입니다. 다시 시도해 주세요.",
+        "EXIT_APP": "프로그램을 종료합니다. 감사합니다!",
+        "CANCELLED": "취소되었습니다.",
+        "FILE_NOT_FOUND": "파일을 찾을 수 없습니다.",
+        "SUCCESS_BACKUP": "설정 백업 성공!",
+        "SUCCESS_DELETE": "설정 파일이 삭제되었습니다.",
+        "SUCCESS_RESTORE": "설정 복원이 완료되었습니다!",
+        "SUCCESS_TUNING": "최적화 설정이 완료되었습니다!",
+        "ERROR_SAVE": "저장 중 오류 발생",
+        "ERROR_READ": "파일 읽기 오류",
+        "ERROR_DELETE": "파일 삭제 중 오류 발생",
+        "ERROR_RESTORE": "일부 설정 복원에 실패했습니다.",
+        "OS_NOT_SUPPORTED": "지원하지 않는 OS입니다",
+        "FEATURE_COMING_SOON": "해당 기능은 현재 준비 중입니다.",
+        "SUDO_REQUIRED": "이 명령은 sudo 권한이 필요할 수 있습니다.",
+        "CONFIRM_APPLY": "설정을 적용하시겠습니까?",
+        "CONFIRM_DELETE": "정말로 삭제하시겠습니까?",
+        "CONFIRM_RESET": "표준 기본값으로 초기화하시겠습니까?",
+        "OUT_OF_RANGE": "범위를 벗어난 번호입니다.",
+        "REQUIRE_NUMBER": "숫자를 입력해주세요.",
+        "IPERF3_NOT_FOUND": "iperf3가 설치되어 있지 않습니다.",
+        "MEASURE_SUCCESS": "측정 완료!"
+    }
+
+    @staticmethod
+    def _print(icon, msg, color, bold=False):
+        style = color + (Colors.BOLD if bold else "")
+        print(f"{style}{icon} {msg}{Colors.ENDC}")
+
+    @staticmethod
+    def success(key_or_msg, bold=True):
+        msg = Messenger.MESSAGES.get(key_or_msg, key_or_msg)
+        Messenger._print("✅", msg, Colors.OKGREEN, bold)
+
+    @staticmethod
+    def error(key_or_msg, bold=True):
+        msg = Messenger.MESSAGES.get(key_or_msg, key_or_msg)
+        Messenger._print("❌", msg, Colors.FAIL, bold)
+
+    @staticmethod
+    def warn(key_or_msg, bold=False):
+        msg = Messenger.MESSAGES.get(key_or_msg, key_or_msg)
+        Messenger._print("⚠️", msg, Colors.WARNING, bold)
+
+    @staticmethod
+    def info(key_or_msg, bold=False):
+        msg = Messenger.MESSAGES.get(key_or_msg, key_or_msg)
+        Messenger._print("ℹ️", msg, Colors.OKCYAN, bold)
+
+    @staticmethod
+    def highlight(msg):
+        return f"{Colors.BOLD}{msg}{Colors.ENDC}"
+
 def get_all_interfaces():
     """시스템의 모든 유효한 네트워크 인터페이스 목록 반환"""
     interfaces = []

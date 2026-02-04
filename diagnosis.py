@@ -1,6 +1,6 @@
 import platform
 import psutil
-from utils import Colors, get_default_interface, get_all_interfaces, get_physical_speed, get_mtu, get_tcp_buffers, get_congestion_control, get_cpu_governor
+from utils import Colors, Messenger, get_default_interface, get_all_interfaces, get_physical_speed, get_mtu, get_tcp_buffers, get_congestion_control, get_cpu_governor
 
 def calculate_guidelines():
     """메모리 기반 네트워크 버퍼 가이드라인 계산"""
@@ -71,9 +71,9 @@ def select_interface():
             if 0 <= idx < len(interfaces):
                 return interfaces[idx]['name']
             else:
-                print(f"{Colors.FAIL}❌ 범위를 벗어난 번호입니다.{Colors.ENDC}")
+                Messenger.error("OUT_OF_RANGE")
         except ValueError:
-            print(f"{Colors.FAIL}❌ 숫자를 입력해주세요.{Colors.ENDC}")
+            Messenger.error("REQUIRE_NUMBER")
 
 def run_diagnosis():
     """진단 로직 실행"""
