@@ -44,6 +44,7 @@ def _apply_mac_tuning():
         
         if success:
             Messenger.success("SUCCESS_TUNING")
+            Messenger.warn("설정이 즉시 반영되었으나, 재부팅 시 초기화될 수 있습니다.", bold=False)
         input("\n계속하려면 [Enter]를 누르세요...")
 
 def apply_highspeed_tuning():
@@ -130,6 +131,7 @@ def restore_config(content):
 
     if success:
         Messenger.success("SUCCESS_RESTORE")
+        Messenger.warn("설정이 복원되었으나, 영구 반영을 위해서는 별도 설정 파일 작업이 필요합니다.", bold=False)
     else:
         Messenger.error("ERROR_RESTORE")
     

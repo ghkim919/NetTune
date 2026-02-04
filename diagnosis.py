@@ -71,8 +71,9 @@ def show_explanations():
         print(f"    {desc}")
     
     print(f"\n{Colors.BOLD}{Colors.OKBLUE}────────────────────────────────────────────────────────────────{Colors.ENDC}")
-    print(f" {Colors.BOLD}💡 Tip: 튜닝 설정 적용 후에는 반드시 네트워크를 재시작하거나{Colors.ENDC}")
-    print(f" {Colors.BOLD}    재부팅을 해야 시스템 전체에 완벽히 반영될 수 있습니다.{Colors.ENDC}")
+    print(f" {Colors.BOLD}💡 주의: 현재 NetTune에서 적용하는 설정은 '실시간 반영'용이며,{Colors.ENDC}")
+    print(f" {Colors.BOLD}    재부팅 시 초기화됩니다. 영구 반영을 위해서는 Linux의 경우{Colors.ENDC}")
+    print(f" {Colors.BOLD}    /etc/sysctl.conf 등에 해당 설정을 추가해야 합니다.{Colors.ENDC}")
     print(f"{Colors.BOLD}{Colors.OKBLUE}────────────────────────────────────────────────────────────────{Colors.ENDC}")
     
     input("\n메뉴로 돌아가려면 [Enter]를 누르세요...")
