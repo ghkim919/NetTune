@@ -50,6 +50,32 @@ def run_iperf_test():
     except Exception as e:
         Messenger.error(f"예상치 못한 에러 발생: {e}")
 
+def run_traceroute(target):
+    """지정된 대상까지의 네트워크 경로 추적 (Traceroute)"""
+    Messenger.info(f"{target}까지의 네트워크 경로 추적을 시작합니다... (최대 15홉)")
+    try:
+        # -m 15: 최대 15홉으로 제한하여 시간 소요 단축
+        if platform.system() == "Darwin":
+            cmd = ["traceroute", "-m", "15", "-q", "1", target]
+        else:
+            cmd = ["traceroute", "-m", "15", "-q", "1", target]
+            
+        # 실시간 출력을 위해 subprocess.Popen 사용
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        
+        print(f"\n{Colors.BOLD}{Colors.OKBLUE}   Hop  Host (IP)                 Latency{Colors.ENDC}")
+        print(f"   -------------------------------------------")
+        
+        for line in process.stdout:
+            print(f"   {line.strip()}")
+            
+        process.wait()
+        print(f"   -------------------------------------------")
+        return True
+    except Exception as e:
+        Messenger.error(f"Traceroute 실행 중 오류 발생: {e}")
+        return False
+
 def measure_rtt(target):
     """실시간 핑 측정을 통한 평균 RTT 추출"""
     print(f" {Colors.OKBLUE}🔍 {target} 서버로 경로 품질(RTT) 측정 중...{Colors.ENDC}")
@@ -89,6 +115,12 @@ def run_precision_bdp_calculator():
     if sub_choice == '1':
         target = input(f" {Colors.BOLD}대상 IP 또는 도메인 입력 (기본: 8.8.8.8) > {Colors.ENDC}").strip()
         if not target: target = "8.8.8.8"
+        
+        # 경로 추적 여부 확인
+        trace_yn = input(f" 🔍 측정 전 경로 추적(Traceroute)을 수행할까요? (y/n, 기본: n) > ").strip().lower()
+        if trace_yn == 'y':
+            run_traceroute(target)
+            
         avg_rtt = measure_rtt(target)
         if avg_rtt:
             Messenger.success(f"측정된 평균 RTT: {avg_rtt} ms")
