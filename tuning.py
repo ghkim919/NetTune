@@ -1,6 +1,6 @@
 import platform
 import subprocess
-from utils import Colors, Messenger
+from utils import Colors, Messenger, get_all_interfaces, get_default_interface
 import config_manager
 from diagnosis import calculate_guidelines
 
@@ -14,6 +14,392 @@ def run_sysctl_command(oid, value):
     except subprocess.CalledProcessError as e:
         print(f"    {Colors.FAIL}✘{Colors.ENDC} {oid} 설정 실패: {e.stderr.strip()}")
         return False
+
+def run_ethtool_command(interface, *args):
+    """sudo ethtool 명령 실행"""
+    cmd = ["sudo", "ethtool"] + list(args) + [interface]
+    try:
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        print(f"    {Colors.OKGREEN}✔{Colors.ENDC} ethtool {' '.join(args)} {interface} {Colors.OKBLUE}(성공){Colors.ENDC}")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"    {Colors.FAIL}✘{Colors.ENDC} ethtool 명령 실패: {e.stderr.strip()}")
+        return False
+
+def run_tc_command(*args):
+    """sudo tc 명령 실행"""
+    cmd = ["sudo", "tc"] + list(args)
+    try:
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        print(f"    {Colors.OKGREEN}✔{Colors.ENDC} tc {' '.join(args)} {Colors.OKBLUE}(성공){Colors.ENDC}")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"    {Colors.FAIL}✘{Colors.ENDC} tc 명령 실패: {e.stderr.strip()}")
+        return False
+
+def run_modprobe(module):
+    """sudo modprobe 명령 실행"""
+    cmd = ["sudo", "modprobe", module]
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        print(f"    {Colors.OKGREEN}✔{Colors.ENDC} modprobe {module} {Colors.OKBLUE}(성공){Colors.ENDC}")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"    {Colors.FAIL}✘{Colors.ENDC} modprobe {module} 실패: {e.stderr.strip()}")
+        return False
+
+def _select_interface():
+    """튜닝 적용할 네트워크 인터페이스 선택"""
+    interfaces = get_all_interfaces()
+    default_iface = get_default_interface()
+
+    print(f"\n{Colors.BOLD}{Colors.OKCYAN}📋 사용 가능한 네트워크 인터페이스:{Colors.ENDC}")
+    print(f"    {'No.':<4} {'이름':<15} {'IP 주소':<15} {'상태':<6} {'비고'}")
+    print("    " + "-" * 55)
+
+    for i, iface in enumerate(interfaces, 1):
+        note = f"{Colors.OKGREEN}(기본){Colors.ENDC}" if iface['name'] == default_iface else ""
+        print(f"    {i:<4} {iface['name']:<15} {iface['ip']:<15} {iface['status']:<6} {note}")
+
+    while True:
+        try:
+            choice = input(f"\n{Colors.BOLD}인터페이스 번호 선택 (기본값: {default_iface}) > {Colors.ENDC}").strip()
+            if not choice:
+                return default_iface
+            idx = int(choice) - 1
+            if 0 <= idx < len(interfaces):
+                return interfaces[idx]['name']
+            else:
+                Messenger.error("OUT_OF_RANGE")
+        except ValueError:
+            Messenger.error("REQUIRE_NUMBER")
+
+def _apply_sysctl_settings(settings):
+    """sysctl 설정 딕셔너리를 일괄 적용"""
+    config_manager.save_config("bk")
+    print(f"\n{Colors.BOLD}🛠️ 설정 적용 중...{Colors.ENDC}")
+    success = True
+    for oid, val in settings.items():
+        success &= run_sysctl_command(oid, val)
+    if success:
+        Messenger.success("SUCCESS_TUNING")
+    Messenger.warn("설정이 즉시 반영되었으나, 재부팅 시 초기화됩니다.", bold=False)
+    Messenger.info("영구 반영: /etc/sysctl.conf 에 해당 설정을 추가하세요.", bold=False)
+    input("\n계속하려면 [Enter]를 누르세요...")
+
+def _apply_linux_general():
+    """일반 호스트 TCP 버퍼 최적화"""
+    print(f"\n{Colors.BOLD}{Colors.OKCYAN}📡 일반 호스트 튜닝 (TCP 버퍼 최적화){Colors.ENDC}")
+    print(f"  [1] 10G NIC (RTT <= 100ms)")
+    print(f"  [2] 10G (RTT <= 200ms) / 40G (RTT <= 50ms)")
+    print(f"  [3] 100G NIC (RTT <= 200ms)")
+    print(f"  [b] 뒤로 가기")
+
+    choice = input(f"\n{Colors.BOLD}선택 > {Colors.ENDC}").strip().lower()
+
+    presets = {
+        '1': {
+            "net.core.rmem_max": 67108864,
+            "net.core.wmem_max": 67108864,
+            "net.ipv4.tcp_rmem": "4096 87380 33554432",
+            "net.ipv4.tcp_wmem": "4096 65536 33554432",
+            "net.ipv4.tcp_mtu_probing": 1,
+            "net.core.default_qdisc": "fq",
+        },
+        '2': {
+            "net.core.rmem_max": 134217728,
+            "net.core.wmem_max": 134217728,
+            "net.ipv4.tcp_rmem": "4096 87380 67108864",
+            "net.ipv4.tcp_wmem": "4096 65536 67108864",
+            "net.ipv4.tcp_mtu_probing": 1,
+            "net.core.default_qdisc": "fq",
+        },
+        '3': {
+            "net.core.rmem_max": 2147483647,
+            "net.core.wmem_max": 2147483647,
+            "net.ipv4.tcp_rmem": "4096 131072 1073741824",
+            "net.ipv4.tcp_wmem": "4096 16384 1073741824",
+            "net.ipv4.tcp_mtu_probing": 1,
+            "net.core.default_qdisc": "fq",
+            "net.core.optmem_max": 1048576,
+        },
+    }
+
+    if choice in presets:
+        Messenger.warn("CONFIRM_APPLY", bold=True)
+        confirm = input(f" {Colors.BOLD}(y/n) > {Colors.ENDC}").strip().lower()
+        if confirm == 'y':
+            _apply_sysctl_settings(presets[choice])
+
+def _apply_linux_test_host():
+    """테스트/측정 호스트 튜닝"""
+    print(f"\n{Colors.BOLD}{Colors.OKCYAN}🧪 테스트/측정 호스트 튜닝{Colors.ENDC}")
+    print(f"  [1] 일반 (10G, RTT <= 100ms)")
+    print(f"  [2] 고지연 경로 (10G RTT <= 200ms / 40G RTT <= 50ms)")
+    print(f"  [3] 초고속 (100G, RTT <= 200ms)")
+    print(f"  [b] 뒤로 가기")
+
+    choice = input(f"\n{Colors.BOLD}선택 > {Colors.ENDC}").strip().lower()
+
+    presets = {
+        '1': {
+            "net.core.rmem_max": 268435456,
+            "net.core.wmem_max": 268435456,
+            "net.ipv4.tcp_rmem": "4096 87380 134217728",
+            "net.ipv4.tcp_wmem": "4096 65536 134217728",
+            "net.ipv4.tcp_no_metrics_save": 1,
+            "net.ipv4.tcp_mtu_probing": 1,
+            "net.core.default_qdisc": "fq",
+        },
+        '2': {
+            "net.core.rmem_max": 536870912,
+            "net.core.wmem_max": 536870912,
+            "net.ipv4.tcp_rmem": "4096 87380 268435456",
+            "net.ipv4.tcp_wmem": "4096 65536 268435456",
+            "net.ipv4.tcp_no_metrics_save": 1,
+            "net.ipv4.tcp_mtu_probing": 1,
+            "net.core.default_qdisc": "fq",
+        },
+        '3': {
+            "net.core.rmem_max": 2147483647,
+            "net.core.wmem_max": 2147483647,
+            "net.ipv4.tcp_rmem": "4096 65536 1073741824",
+            "net.ipv4.tcp_wmem": "4096 65536 1073741824",
+            "net.ipv4.tcp_no_metrics_save": 1,
+            "net.ipv4.tcp_mtu_probing": 1,
+            "net.core.default_qdisc": "fq",
+            "net.core.optmem_max": 1048576,
+        },
+    }
+
+    if choice in presets:
+        Messenger.warn("CONFIRM_APPLY", bold=True)
+        confirm = input(f" {Colors.BOLD}(y/n) > {Colors.ENDC}").strip().lower()
+        if confirm == 'y':
+            _apply_sysctl_settings(presets[choice])
+
+def _apply_linux_100g_nic():
+    """100G NIC 드라이버 최적화"""
+    iface = _select_interface()
+
+    print(f"\n{Colors.BOLD}{Colors.OKCYAN}⚙️ 100G NIC 드라이버 최적화 ({iface}){Colors.ENDC}")
+    print(f"  [1] Ring Buffer 확장 (rx/tx 8192)")
+    print(f"  [2] Adaptive Interrupt Coalescence 활성화")
+    print(f"  [3] Flow Control 활성화 (rx/tx on)")
+    print(f"  [4] CPU Governor -> performance 설정")
+    print(f"  [5] SMT(Hyper-Threading) 비활성화 안내")
+    print(f"  [a] 위 항목 모두 적용 (5번 제외)")
+    print(f"  [b] 뒤로 가기")
+
+    choice = input(f"\n{Colors.BOLD}선택 > {Colors.ENDC}").strip().lower()
+    if choice == 'b':
+        return
+
+    Messenger.warn("SUDO_REQUIRED")
+    print(f"\n{Colors.BOLD}🛠️ 설정 적용 중...{Colors.ENDC}")
+
+    if choice in ['1', 'a']:
+        run_ethtool_command(iface, "-G", "rx", "8192", "tx", "8192")
+    if choice in ['2', 'a']:
+        run_ethtool_command(iface, "-C", "adaptive-rx", "on", "adaptive-tx", "on")
+    if choice in ['3', 'a']:
+        run_ethtool_command(iface, "-A", "rx", "on", "tx", "on")
+    if choice in ['4', 'a']:
+        try:
+            subprocess.run(
+                ["sudo", "cpupower", "frequency-set", "-g", "performance"],
+                check=True, capture_output=True, text=True
+            )
+            print(f"    {Colors.OKGREEN}✔{Colors.ENDC} CPU Governor -> performance {Colors.OKBLUE}(성공){Colors.ENDC}")
+        except subprocess.CalledProcessError as e:
+            print(f"    {Colors.FAIL}✘{Colors.ENDC} CPU Governor 설정 실패: {e.stderr.strip()}")
+        except FileNotFoundError:
+            print(f"    {Colors.FAIL}✘{Colors.ENDC} cpupower가 설치되어 있지 않습니다. (linux-tools 패키지 필요)")
+    if choice == '5':
+        print(f"\n{Colors.BOLD}{Colors.WARNING}📌 SMT(Hyper-Threading) 비활성화 안내:{Colors.ENDC}")
+        print(f"  SMT 비활성화는 BIOS/UEFI 설정에서 수행해야 합니다.")
+        print(f"  - 서버 재부팅 -> BIOS 진입 -> Processor 설정 -> Hyper-Threading 비활성화")
+        print(f"  - 또는 커널 파라미터: nosmt=force (GRUB 설정)")
+
+    input("\n계속하려면 [Enter]를 누르세요...")
+
+def _apply_linux_packet_pacing():
+    """패킷 페이싱 설정"""
+    print(f"\n{Colors.BOLD}{Colors.OKCYAN}📦 패킷 페이싱 설정{Colors.ENDC}")
+    print(f"  [1] fq qdisc 활성화 (sysctl)")
+    print(f"  [2] 인터페이스별 maxrate 설정 (tc)")
+    print(f"  [3] 현재 qdisc 설정 확인")
+    print(f"  [b] 뒤로 가기")
+
+    choice = input(f"\n{Colors.BOLD}선택 > {Colors.ENDC}").strip().lower()
+
+    if choice == '1':
+        Messenger.warn("CONFIRM_APPLY", bold=True)
+        confirm = input(f" {Colors.BOLD}(y/n) > {Colors.ENDC}").strip().lower()
+        if confirm == 'y':
+            config_manager.save_config("bk")
+            print(f"\n{Colors.BOLD}🛠️ 설정 적용 중...{Colors.ENDC}")
+            run_sysctl_command("net.core.default_qdisc", "fq")
+            input("\n계속하려면 [Enter]를 누르세요...")
+
+    elif choice == '2':
+        iface = _select_interface()
+        rate = input(f"{Colors.BOLD}maxrate 입력 (Gbps 단위, 예: 10) > {Colors.ENDC}").strip()
+        if not rate:
+            Messenger.warn("CANCELLED")
+            return
+        try:
+            float(rate)
+        except ValueError:
+            Messenger.error("REQUIRE_NUMBER")
+            return
+        Messenger.warn("CONFIRM_APPLY", bold=True)
+        confirm = input(f" {Colors.BOLD}(y/n) > {Colors.ENDC}").strip().lower()
+        if confirm == 'y':
+            print(f"\n{Colors.BOLD}🛠️ 설정 적용 중...{Colors.ENDC}")
+            run_tc_command("qdisc", "add", "dev", iface, "root", "fq", "maxrate", f"{rate}gbit")
+            input("\n계속하려면 [Enter]를 누르세요...")
+
+    elif choice == '3':
+        iface = _select_interface()
+        try:
+            result = subprocess.run(
+                ["tc", "qdisc", "show", "dev", iface],
+                capture_output=True, text=True
+            )
+            print(f"\n{Colors.BOLD}현재 qdisc 설정 ({iface}):{Colors.ENDC}")
+            print(f"  {result.stdout.strip() if result.stdout.strip() else '설정 없음'}")
+        except Exception as e:
+            Messenger.error(f"qdisc 확인 실패: {e}")
+        input("\n계속하려면 [Enter]를 누르세요...")
+
+def _apply_linux_udp():
+    """UDP 튜닝"""
+    print(f"\n{Colors.BOLD}{Colors.OKCYAN}📡 UDP 튜닝{Colors.ENDC}")
+    print(f"  [1] UDP 소켓 버퍼 확장 (rmem_max/wmem_max -> 4MB)")
+    print(f"  [2] Jumbo Frame (MTU 9000) 설정")
+    print(f"  [b] 뒤로 가기")
+
+    choice = input(f"\n{Colors.BOLD}선택 > {Colors.ENDC}").strip().lower()
+
+    if choice == '1':
+        Messenger.warn("CONFIRM_APPLY", bold=True)
+        confirm = input(f" {Colors.BOLD}(y/n) > {Colors.ENDC}").strip().lower()
+        if confirm == 'y':
+            _apply_sysctl_settings({
+                "net.core.rmem_max": 4194304,
+                "net.core.wmem_max": 4194304,
+            })
+
+    elif choice == '2':
+        iface = _select_interface()
+        print(f"\n{Colors.WARNING}⚠️ Jumbo Frame 설정 전 확인 사항:{Colors.ENDC}")
+        print(f"  - 경로 상의 모든 스위치/라우터가 MTU 9000을 지원해야 합니다.")
+        print(f"  - 미지원 장비가 있으면 패킷이 분할되거나 통신 장애가 발생할 수 있습니다.")
+        Messenger.warn("CONFIRM_APPLY", bold=True)
+        confirm = input(f" {Colors.BOLD}(y/n) > {Colors.ENDC}").strip().lower()
+        if confirm == 'y':
+            try:
+                subprocess.run(
+                    ["sudo", "ip", "link", "set", "dev", iface, "mtu", "9000"],
+                    check=True, capture_output=True, text=True
+                )
+                print(f"    {Colors.OKGREEN}✔{Colors.ENDC} {iface} MTU -> 9000 {Colors.OKBLUE}(성공){Colors.ENDC}")
+            except subprocess.CalledProcessError as e:
+                print(f"    {Colors.FAIL}✘{Colors.ENDC} MTU 설정 실패: {e.stderr.strip()}")
+            input("\n계속하려면 [Enter]를 누르세요...")
+
+def _apply_linux_bbr():
+    """BBR 혼잡제어 활성화"""
+    print(f"\n{Colors.BOLD}{Colors.OKCYAN}🚀 BBR 혼잡제어 활성화{Colors.ENDC}")
+
+    try:
+        cc = subprocess.check_output(
+            ["sysctl", "-n", "net.ipv4.tcp_congestion_control"],
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+        print(f"  현재 혼잡제어: {Colors.BOLD}{cc}{Colors.ENDC}")
+    except:
+        cc = "unknown"
+        print(f"  현재 혼잡제어: 확인 불가")
+
+    if cc == "bbr":
+        Messenger.info("이미 BBR이 활성화되어 있습니다.")
+        input("\n계속하려면 [Enter]를 누르세요...")
+        return
+
+    Messenger.warn("CONFIRM_APPLY", bold=True)
+    confirm = input(f" {Colors.BOLD}(y/n) > {Colors.ENDC}").strip().lower()
+    if confirm == 'y':
+        config_manager.save_config("bk")
+        print(f"\n{Colors.BOLD}🛠️ 설정 적용 중...{Colors.ENDC}")
+        run_modprobe("tcp_bbr")
+        run_sysctl_command("net.ipv4.tcp_congestion_control", "bbr")
+
+        try:
+            result = subprocess.check_output(
+                ["sysctl", "-n", "net.ipv4.tcp_congestion_control"],
+                stderr=subprocess.DEVNULL
+            ).decode().strip()
+            print(f"\n  적용 결과: {Colors.OKGREEN}{Colors.BOLD}{result}{Colors.ENDC}")
+        except:
+            pass
+        input("\n계속하려면 [Enter]를 누르세요...")
+
+def _apply_linux_tuning():
+    """Linux 네트워크 최적화 서브메뉴"""
+    while True:
+        print(f"\n{Colors.BOLD}{Colors.HEADER}   [ Linux 네트워크 최적화 (ESnet Fasterdata 기반) ]{Colors.ENDC}")
+        print(f"   1. {Colors.OKGREEN}일반 호스트 튜닝 (TCP 버퍼 최적화){Colors.ENDC}")
+        print(f"   2. {Colors.OKCYAN}테스트/측정 호스트 튜닝{Colors.ENDC}")
+        print(f"   3. {Colors.OKBLUE}100G NIC 드라이버 최적화{Colors.ENDC}")
+        print(f"   4. {Colors.WARNING}패킷 페이싱 설정{Colors.ENDC}")
+        print(f"   5. {Colors.OKCYAN}UDP 튜닝{Colors.ENDC}")
+        print(f"   6. {Colors.OKGREEN}BBR 혼잡제어 활성화{Colors.ENDC}")
+        print(f"   b. {Colors.BOLD}뒤로 가기{Colors.ENDC}")
+
+        choice = input(f"\n {Colors.BOLD}선택 > {Colors.ENDC}").strip().lower()
+
+        if choice == '1':
+            _apply_linux_general()
+        elif choice == '2':
+            _apply_linux_test_host()
+        elif choice == '3':
+            _apply_linux_100g_nic()
+        elif choice == '4':
+            _apply_linux_packet_pacing()
+        elif choice == '5':
+            _apply_linux_udp()
+        elif choice == '6':
+            _apply_linux_bbr()
+        elif choice == 'b':
+            break
+
+def _reset_linux_defaults():
+    """Linux 기본값 복원"""
+    Messenger.warn("CONFIRM_RESET", bold=True)
+    confirm = input(f" {Colors.BOLD}(y/n) > {Colors.ENDC}").strip().lower()
+
+    if confirm == 'y':
+        config_manager.save_config("bk")
+        defaults = {
+            "net.core.rmem_max": 212992,
+            "net.core.wmem_max": 212992,
+            "net.ipv4.tcp_rmem": "4096 131072 6291456",
+            "net.ipv4.tcp_wmem": "4096 16384 4194304",
+            "net.core.default_qdisc": "fq_codel",
+            "net.ipv4.tcp_congestion_control": "cubic",
+            "net.ipv4.tcp_mtu_probing": 0,
+            "net.ipv4.tcp_no_metrics_save": 0,
+            "net.core.optmem_max": 20480,
+        }
+        print(f"\n{Colors.BOLD}🛠️ 기본값 복원 중...{Colors.ENDC}")
+        success = True
+        for oid, val in defaults.items():
+            success &= run_sysctl_command(oid, val)
+        if success:
+            Messenger.success("SUCCESS_RESTORE")
+        input("\n계속하려면 [Enter]를 누르세요...")
 
 def _apply_mac_tuning():
     """macOS 전용 네트워크 튜닝 로직"""
@@ -53,8 +439,7 @@ def apply_highspeed_tuning():
     if system == "Darwin":
         _apply_mac_tuning()
     elif system == "Linux":
-        Messenger.info("FEATURE_COMING_SOON")
-        input("\n[Enter]를 누르면 돌아갑니다...")
+        _apply_linux_tuning()
     else:
         Messenger.error(f"OS_NOT_SUPPORTED: {system}")
 
@@ -86,8 +471,7 @@ def reset_to_defaults():
     if system == "Darwin":
         _reset_mac_defaults()
     elif system == "Linux":
-        Messenger.info("FEATURE_COMING_SOON")
-        input("\n[Enter]를 누르면 돌아갑니다...")
+        _reset_linux_defaults()
     else:
         Messenger.error(f"OS_NOT_SUPPORTED: {system}")
 

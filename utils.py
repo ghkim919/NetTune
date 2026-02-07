@@ -170,7 +170,11 @@ def get_tcp_buffers():
                 'tcp_rmem (min default max)': "net.ipv4.tcp_rmem",
                 'tcp_wmem (min default max)': "net.ipv4.tcp_wmem",
                 'core_rmem_max': "net.core.rmem_max",
-                'core_wmem_max': "net.core.wmem_max"
+                'core_wmem_max': "net.core.wmem_max",
+                'tcp_mtu_probing': "net.ipv4.tcp_mtu_probing",
+                'default_qdisc': "net.core.default_qdisc",
+                'optmem_max': "net.core.optmem_max",
+                'tcp_no_metrics_save': "net.ipv4.tcp_no_metrics_save",
             }
             for label, oid in targets.items():
                 try:

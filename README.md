@@ -30,6 +30,21 @@ pip install psutil
 python3 nettune.py
 ```
 
+## Linux 네트워크 튜닝 (ESnet Fasterdata 기반)
+
+메뉴 3번 "전송 고속망 최적화 설정 적용"에서 Linux 환경 전용 서브메뉴를 제공합니다.
+
+| 메뉴 | 기능 | 설명 |
+|------|------|------|
+| 1 | 일반 호스트 튜닝 | NIC 속도/RTT 기준 TCP 버퍼 최적화 (10G/40G/100G 프리셋) |
+| 2 | 테스트/측정 호스트 튜닝 | 일반보다 큰 버퍼 + `tcp_no_metrics_save` 추가 |
+| 3 | 100G NIC 드라이버 최적화 | Ring Buffer, Interrupt Coalescence, Flow Control, CPU Governor |
+| 4 | 패킷 페이싱 설정 | fq qdisc 활성화 및 tc maxrate 설정 |
+| 5 | UDP 튜닝 | 소켓 버퍼 확장 및 Jumbo Frame(MTU 9000) 설정 |
+| 6 | BBR 혼잡제어 활성화 | `tcp_bbr` 모듈 로드 및 혼잡제어 알고리즘 변경 |
+
+> **참고**: Linux 튜닝 기능은 아직 실제 Linux 환경에서의 통합 테스트가 완료되지 않았습니다. 사용 시 예상치 못한 동작이 있을 수 있으며, 적용 전 반드시 백업을 생성하시기 바랍니다.
+
 ## 튜닝 팁 및 주의 사항
 - **10Gbps 이상**의 고속망을 사용한다면 MTU를 **9000**으로 설정하는 것을 권장합니다.
 - 장거리 전송(LFN) 환경에서는 혼잡제어 알고리즘을 **BBR**로 변경하면 성능이 대폭 향상될 수 있습니다 (Linux 4.9 이상).
