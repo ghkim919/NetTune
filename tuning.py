@@ -408,7 +408,7 @@ def _apply_mac_tuning():
     nettune_val = int(guide['suggested_max_buffer_bytes'])
     
     print(f"\n{Colors.BOLD}{Colors.OKCYAN}🚀 macOS 네트워크 최적화 설정{Colors.ENDC}")
-    print(f" [옵션 1] ESNet Fasterdata 권장값 (32 MB)")
+    print(f" [옵션 1] 고속망 권장값 (32 MB)")
     print(f" [옵션 2] NetTune RAM 기반 권장값 ({guide['suggested_max_buffer_mb']} MB)")
     
     choice = input(f"\n{Colors.BOLD}선택 (1 또는 2) > {Colors.ENDC}").strip()
