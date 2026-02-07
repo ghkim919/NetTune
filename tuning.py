@@ -349,7 +349,7 @@ def _apply_linux_bbr():
 def _apply_linux_tuning():
     """Linux 네트워크 최적화 서브메뉴"""
     while True:
-        print(f"\n{Colors.BOLD}{Colors.HEADER}   [ Linux 네트워크 최적화 (ESnet Fasterdata 기반) ]{Colors.ENDC}")
+        print(f"\n{Colors.BOLD}{Colors.HEADER}   [ Linux 네트워크 최적화 ]{Colors.ENDC}")
         print(f"   1. {Colors.OKGREEN}일반 호스트 튜닝 (TCP 버퍼 최적화){Colors.ENDC}")
         print(f"   2. {Colors.OKCYAN}테스트/측정 호스트 튜닝{Colors.ENDC}")
         print(f"   3. {Colors.OKBLUE}100G NIC 드라이버 최적화{Colors.ENDC}")

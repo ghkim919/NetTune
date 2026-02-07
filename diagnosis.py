@@ -52,8 +52,8 @@ def show_explanations():
         ("⚖️ 혼잡제어 알고리즘 (Congestion Control)", 
          "네트워크 혼잡 시 전송 속도를 지능적으로 조절하는 로직입니다.\n"
          "      - Cubic: 고전적인 표준 기반 알고리즘 (대부분의 OS 기본값)\n"
-         "      - BBR: Google 개발 알고리즘. 패킷 손실이 잦은 장거리(LFN) 망에서\n"
-         "             압도적인 속도 향상을 보여줍니다."),
+         "      - BBR: Google 개발 알고리즘. 높은 BDP(대역폭x지연)의 장거리(LFN) 망에서\n"
+         "             Cubic 대비 큰 성능 향상을 보여줍니다."),
         
         ("📝 튜닝 가이드라인 (NetTune Recommendation)", 
          "현재 시스템의 RAM 용량을 분석하여 최적의 버퍼 크기를 제안합니다.\n"

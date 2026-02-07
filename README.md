@@ -30,7 +30,7 @@ pip install psutil
 python3 nettune.py
 ```
 
-## Linux 네트워크 튜닝 (ESnet Fasterdata 기반)
+## Linux 네트워크 튜닝
 
 메뉴 3번 "전송 고속망 최적화 설정 적용"에서 Linux 환경 전용 서브메뉴를 제공합니다.
 
